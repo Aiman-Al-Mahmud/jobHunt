@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('mobile')->nullable();
             $table->rememberToken();
             $table->timestamps();
+            $table->boolean('is_admin')->default(false);
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

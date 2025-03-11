@@ -23,59 +23,57 @@ class AccountController extends Controller
 
     // This method will save a user
     public function processRegistration(Request $request){
-        $validator = Validator::make($request->all(), [
-            'name' => 'required',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:5',
+        // Validate user input
+        $request->validate([
+            'name'             => 'required',
+            'email'            => 'required|email|unique:users,email',
+            'password'         => 'required|min:5',
             'confirm_password' => 'required|same:password',
         ]);
-
-        if($validator->passes()){
-
-            $user = new User();
-            $user->name = $request->name;
-            $user->email = $request->email;
-            $user->password = Hash::make($request->password);
-            $user->name = $request->name;
-            $user->save();
-
-            session()->flash('success', 'You have registered successfully.');
-
-            return response()->json([
-                'status' => true,
-                'errors' => []
-            ]);
-        }else{
-            return response()->json([
-                'status' => false,
-                'errors' => $validator->errors()
-            ]);
-        }
+   
+        // Create the user with the hashed password, setting is_admin for the specified email.
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => bcrypt($request->password), // Hash the password
+            'is_admin' => $request->email === 'aimanmahmaud69@gmail.com', // Set as admin if the email matches
+        ]);
+   
+        session()->flash('success', 'You have registered successfully.');
+   
+        return redirect()->route('home')->with('success', 'Registration successful.');
     }
+   
     
     // This method will show user login page
     public function login(){
         return view('front.account.login');
     }
 
-    public function authenticate(Request $request){
-        $validator = Validator::make($request->all(), [
-            'email'=> 'required|email',
-            'password' => 'required',
-        ]);
-
-        if($validator->passes()){
-            if(Auth::attempt(['email'=>$request->email, 'password'=> $request->password])){
-                return redirect()->route('account.profile');
-            }else{ // Wrong credentials
-                return redirect()->route('account.login')->with('error', 'Either email or password is incorrect');
+    public function authenticate(Request $request)
+    {
+        // Get the credentials from the request
+        $credentials = $request->only('email', 'password');
+    
+        // Attempt to authenticate the user
+        if (Auth::attempt($credentials)) {
+            // Authentication passed, get the authenticated user
+            $user = Auth::user();
+    
+            // Check if the user is an admin
+            if ($user->is_admin) {
+                // Redirect admin user to the admin dashboard
+                return redirect()->route('admin.dashboard');
             }
-        } else{
-            return redirect()->route('account.login')
-            ->withErrors($validator)
-            ->withInput($request->only('email'));
+    
+            // If the user is not an admin, redirect them to their profile or home
+            return redirect()->route('account.profile');
         }
+    
+        // Authentication failed: redirect back with error
+        return redirect()->back()->withErrors(['Invalid credentials. Please try again.']);
     }
+    
 
     public function profile(){
         $id = Auth::user()->id;
@@ -88,6 +86,8 @@ class AccountController extends Controller
             'user' => $user
         ]);
     }
+
+    
 
     public function updateProfile(Request $request){
         $id = Auth::user()->id;
